@@ -1,0 +1,53 @@
+DLNM model summary
+Input rows used: 15359 
+States used: 38 
+Temperature restriction (1st-99th percentile): -8.105 to 31.281 C
+Max lag (weeks): 3 
+Centering temperature (MMT): 24.4 C
+
+
+Call:
+
+gnm(formula = deaths ~ cb_temp, eliminate = stratum, family = quasipoisson(), 
+    data = df, na.action = na.exclude)
+
+Deviance Residuals: 
+    Min       1Q   Median       3Q      Max  
+-5.7241  -0.6224  -0.0113   0.5827   3.6068  
+
+Coefficients of interest:
+              Estimate Std. Error t value Pr(>|t|)    
+cb_tempv1.l1 -0.113460   0.029126  -3.895 9.86e-05 ***
+cb_tempv1.l2 -0.002269   0.031216  -0.073  0.94205    
+cb_tempv1.l3 -0.119910   0.018519  -6.475 9.86e-11 ***
+cb_tempv1.l4  0.008333   0.017676   0.471  0.63736    
+cb_tempv2.l1 -0.150991   0.028393  -5.318 1.07e-07 ***
+cb_tempv2.l2  0.004101   0.030596   0.134  0.89339    
+cb_tempv2.l3 -0.116334   0.016708  -6.963 3.51e-12 ***
+cb_tempv2.l4  0.028510   0.017196   1.658  0.09735 .  
+cb_tempv3.l1 -0.138606   0.060048  -2.308  0.02100 *  
+cb_tempv3.l2 -0.026958   0.064898  -0.415  0.67787    
+cb_tempv3.l3 -0.123677   0.041531  -2.978  0.00291 ** 
+cb_tempv3.l4  0.049151   0.037673   1.305  0.19203    
+cb_tempv4.l1 -0.164570   0.040337  -4.080 4.54e-05 ***
+cb_tempv4.l2  0.022657   0.043116   0.525  0.59925    
+cb_tempv4.l3 -0.078333   0.025319  -3.094  0.00198 ** 
+cb_tempv4.l4  0.017241   0.024342   0.708  0.47878    
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+(Dispersion parameter for quasipoisson family taken to be 1.053268)
+
+Residual deviance: 12400 on 11732 degrees of freedom
+AIC: NA
+
+Number of iterations: 2
+
+
+Cumulative RR at selected percentiles
+  percentile temperature_C rr_cumulative rr_low_95 rr_high_95
+1        p01     -5.577429      1.260841 1.1967160   1.328401
+2        p10      1.328571      1.222853 1.1813783   1.265785
+3        p50     14.785714      1.062369 1.0361236   1.089279
+4        p90     25.800000      1.001978 0.9960500   1.007941
+5        p99     29.185714      1.023699 0.9824881   1.066638

@@ -1,0 +1,54 @@
+DLNM model summary: CKD minus I99 deaths
+Matched overlap rows (before weather join): 13555 
+Rows used in model: 13229 
+States used: 33 
+Temperature restriction (1st-99th percentile): -8.286 to 31.849 C
+Max lag (weeks): 3 
+Centering temperature (MMT): 24.2 C
+
+
+Call:
+
+gnm(formula = deaths ~ cb_temp, eliminate = stratum, family = quasipoisson(), 
+    data = model_df, na.action = na.exclude)
+
+Deviance Residuals: 
+    Min       1Q   Median       3Q      Max  
+-4.5853  -0.6304  -0.0252   0.5763   3.1534  
+
+Coefficients of interest:
+             Estimate Std. Error t value Pr(>|t|)    
+cb_tempv1.l1 -0.14669    0.05020  -2.922  0.00349 ** 
+cb_tempv1.l2  0.04948    0.05385   0.919  0.35820    
+cb_tempv1.l3 -0.13896    0.03211  -4.327 1.53e-05 ***
+cb_tempv1.l4 -0.00538    0.03028  -0.178  0.85899    
+cb_tempv2.l1 -0.14814    0.04879  -3.036  0.00240 ** 
+cb_tempv2.l2  0.08504    0.05267   1.615  0.10643    
+cb_tempv2.l3 -0.14468    0.02888  -5.010 5.55e-07 ***
+cb_tempv2.l4  0.01943    0.02958   0.657  0.51117    
+cb_tempv3.l1 -0.06688    0.10586  -0.632  0.52757    
+cb_tempv3.l2  0.06944    0.11421   0.608  0.54321    
+cb_tempv3.l3 -0.18800    0.07236  -2.598  0.00939 ** 
+cb_tempv3.l4  0.06336    0.06525   0.971  0.33154    
+cb_tempv4.l1 -0.12787    0.07364  -1.736  0.08251 .  
+cb_tempv4.l2  0.02207    0.07796   0.283  0.77716    
+cb_tempv4.l3 -0.07067    0.04661  -1.516  0.12955    
+cb_tempv4.l4  0.04762    0.04279   1.113  0.26581    
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+(Dispersion parameter for quasipoisson family taken to be 1.053364)
+
+Residual deviance: 10762 on 10081 degrees of freedom
+AIC: NA
+
+Number of iterations: 2
+
+
+Cumulative RR at selected percentiles
+  percentile temperature_C rr_cumulative rr_low_95 rr_high_95
+1        p01     -5.700000      1.293219 1.1829280   1.413794
+2        p10      1.728571      1.230651 1.1608359   1.304666
+3        p50     15.142857      1.059442 1.0170317   1.103622
+4        p90     25.885714      1.005206 0.9932940   1.017260
+5        p99     29.400000      1.051067 0.9801524   1.127113

@@ -1,0 +1,55 @@
+I99 N00-N99 DLNM model summary
+Rows used in model: 13229 
+States used: 33 
+Suppression threshold: 0.2 
+States removed: District of Columbia, Wyoming, Alaska, Vermont, Delaware, South Dakota, Montana, North Dakota, Rhode Island, Hawaii, New Mexico, Maine, Idaho, New Hampshire, Utah, Nevada, Nebraska, West Virginia 
+Temperature restriction (1st-99th percentile): -8.286 to 31.849 C
+Max lag (weeks): 3 
+Centering temperature (MMT): 25.1 C
+
+
+Call:
+
+gnm(formula = deaths ~ cb_temp, eliminate = stratum, family = quasipoisson(), 
+    data = model_df, na.action = na.exclude)
+
+Deviance Residuals: 
+     Min        1Q    Median        3Q       Max  
+-4.03047  -0.62424  -0.01673   0.55854   3.22060  
+
+Coefficients of interest:
+             Estimate Std. Error t value Pr(>|t|)    
+cb_tempv1.l1 -0.11035    0.03665  -3.011  0.00261 ** 
+cb_tempv1.l2 -0.04173    0.03931  -1.062  0.28840    
+cb_tempv1.l3 -0.11129    0.02305  -4.827 1.40e-06 ***
+cb_tempv1.l4  0.03483    0.02209   1.577  0.11492    
+cb_tempv2.l1 -0.17664    0.03556  -4.968 6.88e-07 ***
+cb_tempv2.l2 -0.04336    0.03835  -1.131  0.25824    
+cb_tempv2.l3 -0.11131    0.02078  -5.357 8.63e-08 ***
+cb_tempv2.l4  0.03186    0.02151   1.482  0.13848    
+cb_tempv3.l1 -0.17525    0.07614  -2.302  0.02137 *  
+cb_tempv3.l2 -0.13790    0.08224  -1.677  0.09362 .  
+cb_tempv3.l3 -0.09494    0.05182  -1.832  0.06694 .  
+cb_tempv3.l4  0.05211    0.04712   1.106  0.26883    
+cb_tempv4.l1 -0.19196    0.05430  -3.535  0.00041 ***
+cb_tempv4.l2  0.03258    0.05752   0.566  0.57116    
+cb_tempv4.l3 -0.05869    0.03502  -1.676  0.09373 .  
+cb_tempv4.l4  0.01798    0.03186   0.564  0.57257    
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+(Dispersion parameter for quasipoisson family taken to be 1.005828)
+
+Residual deviance: 10175 on 10081 degrees of freedom
+AIC: NA
+
+Number of iterations: 2
+
+
+Cumulative RR at selected percentiles
+  percentile temperature_C rr_cumulative rr_low_95 rr_high_95
+1        p01     -5.700000      1.274618 1.1936808   1.361043
+2        p10      1.728571      1.230895 1.1786999   1.285402
+3        p50     15.142857      1.076305 1.0414035   1.112377
+4        p90     25.885714      1.001130 0.9964769   1.005804
+5        p99     29.400000      1.034480 0.9819569   1.089813

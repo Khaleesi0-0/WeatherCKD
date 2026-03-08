@@ -1,0 +1,21 @@
+Two-stage DLNM summary
+Input file: data/ckd_2018_2022_with_weather_weekly.csv
+Rows used after temperature trimming: 15418
+Temperature trimming (1st-99th percentile): -8.105 to 31.281 C
+Successful first-stage units (states): 38
+Max lag: 7
+Lag df: 3
+
+Pooled national cumulative association (per +1 C)
+log(RR): -0.00171
+RR: 0.99829 (95% CI 0.99409, 1.0025)
+
+National attributable fraction
+AF: 0.091
+Total attributable cases: 87177.5
+Total observed deaths: 958044
+
+Notes:
+1) This script follows the two-stage framework but uses state-level weekly deaths (not daily city hospitalizations).
+2) humidity/PM10/O3 terms are included only if those columns exist in the input data.
+3) DOW and PH are retained for structural consistency with the reference method.

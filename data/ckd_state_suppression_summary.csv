@@ -1,0 +1,52 @@
+"state","rows","suppressed_rows","missing_or_suppressed_rows","suppression_share"
+"Alaska",400,398,398,0.995
+"Wyoming",403,399,399,0.990074441687345
+"Vermont",413,405,405,0.980629539951574
+"District of Columbia",414,403,403,0.973429951690821
+"Delaware",418,343,343,0.820574162679426
+"North Dakota",418,326,326,0.779904306220096
+"Montana",418,311,311,0.744019138755981
+"Rhode Island",418,300,300,0.717703349282297
+"South Dakota",418,283,283,0.677033492822967
+"Hawaii",418,178,178,0.425837320574163
+"New Hampshire",418,162,162,0.38755980861244
+"Idaho",418,141,141,0.337320574162679
+"Maine",418,119,119,0.284688995215311
+"New Mexico",418,57,57,0.136363636363636
+"Nevada",418,45,45,0.107655502392345
+"Utah",418,26,26,0.062200956937799
+"Nebraska",418,15,15,0.0358851674641148
+"West Virginia",418,3,3,0.00717703349282297
+"Kansas",418,2,2,0.00478468899521531
+"Arkansas",418,1,1,0.00239234449760766
+"Mississippi",418,1,1,0.00239234449760766
+"Alabama",418,0,0,0
+"Arizona",418,0,0,0
+"California",418,0,0,0
+"Colorado",418,0,0,0
+"Connecticut",418,0,0,0
+"Florida",418,0,0,0
+"Georgia",418,0,0,0
+"Illinois",418,0,0,0
+"Indiana",418,0,0,0
+"Iowa",418,0,0,0
+"Kentucky",418,0,0,0
+"Louisiana",418,0,0,0
+"Maryland",418,0,0,0
+"Massachusetts",418,0,0,0
+"Michigan",418,0,0,0
+"Minnesota",418,0,0,0
+"Missouri",418,0,0,0
+"New Jersey",418,0,0,0
+"New York",418,0,0,0
+"North Carolina",418,0,0,0
+"Ohio",418,0,0,0
+"Oklahoma",418,0,0,0
+"Oregon",418,0,0,0
+"Pennsylvania",418,0,0,0
+"South Carolina",418,0,0,0
+"Tennessee",418,0,0,0
+"Texas",418,0,0,0
+"Virginia",418,0,0,0
+"Washington",418,0,0,0
+"Wisconsin",418,0,0,0
