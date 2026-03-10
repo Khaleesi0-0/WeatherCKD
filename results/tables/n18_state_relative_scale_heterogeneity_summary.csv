@@ -1,0 +1,7 @@
+"effect","scale","model","q","df","p","i2_percent","n_effects"
+"Heat effect","Relative scale","Intercept only",74.6508180091035,63,0.149483763750398,15.6070868609674,64
+"Heat effect","Relative scale","Clusters, time",73.8701010727837,59,0.091999194927055,20.130067316589,64
+"Heat effect","Relative scale","Clusters, time, summer mean",73.8480779501918,58,0.0783757481296296,21.4603797283402,64
+"Cold effect","Relative scale","Intercept only",71.4502413039646,63,0.21758945987029,11.8267498468137,64
+"Cold effect","Relative scale","Clusters, time",47.7705252698077,59,0.852057506237433,0,64
+"Cold effect","Relative scale","Clusters, time, winter mean",47.4626242357507,58,0.836920888898512,0,64

@@ -1,0 +1,18 @@
+Adapted N18 state-level cluster/meta-smoothing workflow
+
+Inputs:
+- data/processed/ckd_2018_2022_cleaned.csv
+- data/processed/ckd_2018_2022_with_weather_weekly.csv
+
+Method notes:
+- Uses states as the study units in place of cities.
+- Uses weekly state mortality counts and weekly mean temperature because daily state-level N18 files are not present in this repo.
+- Uses hierarchical clustering with method ward.D2 on state seasonal temperature mean and SD.
+- Targets 4 clusters with a minimum cluster size of 3; if needed, the script reduces the cluster count until that requirement is met.
+- Uses two multi-year periods based on available state-week data: 2018-2021 and 2022-2025.
+- Uses quasi-Poisson GAMs with a natural spline for time plus quadratic B-spline terms for current-week temperature and the lag 1-3 week mean temperature.
+- Uses the empirical median weekly temperature as the centering temperature (MMT/reference): 14.757 C.
+- Defines the absolute cold contrast as the average state-specific 10th percentile (2.568 C) versus 14.757 C.
+- Defines the absolute heat contrast as the average state-specific 90th percentile (25.389 C) versus 14.757 C.
+- Cluster-specific temperature basis knots are shared within each cluster-period to preserve coefficient interpretation across states inside that cluster-period.
+- This is not a literal replication of the published city-daily pipeline; it is the closest state-week adaptation supported by the local files.
