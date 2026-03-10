@@ -4,11 +4,11 @@ library(dlnm)
 library(splines)
 library(gnm)
 
-input_file <- "data/ckd_2018_2022_with_weather_weekly.csv"
-out_summary <- "data/dlnm_model_summary.txt"
-out_curve <- "data/dlnm_cumulative_rr_curve.csv"
-out_pct <- "data/dlnm_cumulative_rr_percentiles.csv"
-out_plot <- "data/dlnm_cumulative_rr_plot.png"
+input_file <- "data/processed/ckd_2018_2022_with_weather_weekly.csv"
+out_summary <- "results/tables/dlnm_model_summary.txt"
+out_curve <- "results/tables/dlnm_cumulative_rr_curve.csv"
+out_pct <- "results/tables/dlnm_cumulative_rr_percentiles.csv"
+out_plot <- "results/figures/dlnm_cumulative_rr_plot.png"
 
 max_lag_weeks <- 3
 

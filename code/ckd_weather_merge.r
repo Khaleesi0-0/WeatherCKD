@@ -3,12 +3,12 @@ library(lubridate)
 library(httr)
 library(jsonlite)
 
-ckd_files <- c("data/ckd2018.csv", "data/ckd2022.csv")
-weather_file <- "data/us_state_daily_tmean_2004_2024.csv"
+ckd_files <- c("data/raw/ckd2018.csv", "data/raw/ckd2022.csv")
+weather_file <- "data/raw/us_state_daily_tmean_2004_2024.csv"
 
-clean_ckd_out <- "data/ckd_2018_2022_cleaned.csv"
-state_suppression_out <- "data/ckd_state_suppression_summary.csv"
-merged_out <- "data/ckd_2018_2022_with_weather_weekly.csv"
+clean_ckd_out <- "data/processed/ckd_2018_2022_cleaned.csv"
+state_suppression_out <- "results/tables/ckd_state_suppression_summary.csv"
+merged_out <- "data/processed/ckd_2018_2022_with_weather_weekly.csv"
 
 # States above this share of suppressed/non-numeric Deaths are removed.
 suppression_threshold <- 0.20

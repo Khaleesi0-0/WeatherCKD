@@ -5,16 +5,16 @@ suppressPackageStartupMessages({
   library(gnm)
 })
 
-ckd_clean_file <- "data/ckd_2018_2022_cleaned.csv"
-i99_clean_file <- "data/i99_n00n99_cleaned.csv"
-weather_weekly_file <- "data/ckd_2018_2022_with_weather_weekly.csv"
+ckd_clean_file <- "data/processed/ckd_2018_2022_cleaned.csv"
+i99_clean_file <- "data/processed/i99_n00n99_cleaned.csv"
+weather_weekly_file <- "data/processed/ckd_2018_2022_with_weather_weekly.csv"
 
-out_clean_diff <- "data/ckd_minus_i99_cleaned.csv"
-out_model_input <- "data/ckd_minus_i99_with_weather_weekly.csv"
-out_summary <- "data/ckd_minus_i99_dlnm_model_summary.txt"
-out_curve <- "data/ckd_minus_i99_dlnm_cumulative_rr_curve.csv"
-out_pct <- "data/ckd_minus_i99_dlnm_cumulative_rr_percentiles.csv"
-out_plot <- "data/ckd_minus_i99_dlnm_cumulative_rr_plot.png"
+out_clean_diff <- "data/processed/ckd_minus_i99_cleaned.csv"
+out_model_input <- "data/processed/ckd_minus_i99_with_weather_weekly.csv"
+out_summary <- "results/tables/ckd_minus_i99_dlnm_model_summary.txt"
+out_curve <- "results/tables/ckd_minus_i99_dlnm_cumulative_rr_curve.csv"
+out_pct <- "results/tables/ckd_minus_i99_dlnm_cumulative_rr_percentiles.csv"
+out_plot <- "results/figures/ckd_minus_i99_dlnm_cumulative_rr_plot.png"
 
 max_lag_weeks <- 3
 

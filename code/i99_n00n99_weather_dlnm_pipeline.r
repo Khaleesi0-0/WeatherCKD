@@ -11,21 +11,21 @@ suppressPackageStartupMessages({
 # Inputs / outputs
 # -----------------------------
 input_files <- c(
-  "data/I99ckd2018.csv",
-  "data/I99ckd2020.csv",
-  "data/I99ckd2022.csv",
-  "data/I99ckd2024.csv"
+  "data/raw/I99ckd2018.csv",
+  "data/raw/I99ckd2020.csv",
+  "data/raw/I99ckd2022.csv",
+  "data/raw/I99ckd2024.csv"
 )
-weather_file <- "data/us_state_daily_tmean_2004_2024.csv"
+weather_file <- "data/raw/us_state_daily_tmean_2004_2024.csv"
 
-clean_out <- "data/i99_n00n99_cleaned.csv"
-suppression_out <- "data/i99_n00n99_state_suppression_summary.csv"
-merged_out <- "data/i99_n00n99_with_weather_weekly.csv"
+clean_out <- "data/processed/i99_n00n99_cleaned.csv"
+suppression_out <- "results/tables/i99_n00n99_state_suppression_summary.csv"
+merged_out <- "data/processed/i99_n00n99_with_weather_weekly.csv"
 
-model_summary_out <- "data/i99_n00n99_dlnm_model_summary.txt"
-model_curve_out <- "data/i99_n00n99_dlnm_cumulative_rr_curve.csv"
-model_pct_out <- "data/i99_n00n99_dlnm_cumulative_rr_percentiles.csv"
-model_plot_out <- "data/i99_n00n99_dlnm_cumulative_rr_plot.png"
+model_summary_out <- "results/tables/i99_n00n99_dlnm_model_summary.txt"
+model_curve_out <- "results/tables/i99_n00n99_dlnm_cumulative_rr_curve.csv"
+model_pct_out <- "results/tables/i99_n00n99_dlnm_cumulative_rr_percentiles.csv"
+model_plot_out <- "results/figures/i99_n00n99_dlnm_cumulative_rr_plot.png"
 
 suppression_threshold <- 0.20
 max_lag_weeks <- 3
