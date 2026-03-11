@@ -1,0 +1,7 @@
+"metric","value"
+"ckd_total_deaths_raw",976734
+"i99_total_deaths_raw",609963
+"ckd_total_deaths_matched_overlap",938668
+"i99_total_deaths_matched_overlap",609963
+"ckd_minus_i99_total_deaths",328705
+"matched_state_weeks",13555
