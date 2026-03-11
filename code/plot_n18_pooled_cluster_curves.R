@@ -3,44 +3,27 @@ suppressPackageStartupMessages({
 })
 
 curves_file <- "results/tables/n18_state_cluster_period_curves.csv"
+effects_file <- "results/tables/n18_state_cluster_period_effects.csv"
 assignments_file <- "results/tables/n18_state_cluster_assignments.csv"
-ckd_file <- "data/processed/ckd_2018_2022_cleaned.csv"
-weather_file <- "data/processed/ckd_2018_2022_with_weather_weekly.csv"
-png_out <- "results/figures/n18_pooled_temperature_rr_by_cluster.png"
-pdf_out <- "results/figures/n18_pooled_temperature_rr_by_cluster.pdf"
+png_out <- "results/figures/n18_pooled_temperature_or_by_cluster.png"
+pdf_out <- "results/figures/n18_pooled_temperature_or_by_cluster.pdf"
 
 dir.create("results/figures", recursive = TRUE, showWarnings = FALSE)
 
-curves <- read.csv(curves_file, stringsAsFactors = FALSE)
-assignments <- read.csv(assignments_file, stringsAsFactors = FALSE)
-ckd <- read.csv(ckd_file, stringsAsFactors = FALSE) %>%
+curves <- read.csv(curves_file, stringsAsFactors = FALSE) %>%
   mutate(
-    state = trimws(state),
-    week_end_date = as.Date(week_end_date),
-    year = as.integer(year),
-    deaths = suppressWarnings(as.numeric(deaths))
-  ) %>%
-  filter(!is.na(state), state != "", !is.na(week_end_date), !is.na(year), !is.na(deaths), deaths >= 0)
-weather <- read.csv(weather_file, stringsAsFactors = FALSE) %>%
+    cluster = trimws(cluster),
+    period = trimws(period)
+  )
+
+effects <- read.csv(effects_file, stringsAsFactors = FALSE) %>%
   mutate(
-    state = trimws(state),
-    week_end_date = as.Date(week_end_date),
-    tmean_C_weekly = suppressWarnings(as.numeric(tmean_C_weekly))
-  ) %>%
-  filter(!is.na(state), state != "", !is.na(week_end_date), !is.na(tmean_C_weekly))
-reference_temp_c <- ckd %>%
-  group_by(state, week_end_date, year) %>%
-  summarise(
-    deaths = sum(deaths, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  left_join(
-    weather %>% select(state, week_end_date, tmean_C_weekly),
-    by = c("state", "week_end_date")
-  ) %>%
-  filter(!is.na(tmean_C_weekly)) %>%
-  summarise(ref = as.numeric(stats::quantile(tmean_C_weekly, probs = 0.50, na.rm = TRUE, names = FALSE))) %>%
-  pull(ref)
+    cluster = trimws(cluster),
+    period = trimws(period)
+  )
+
+assignments <- read.csv(assignments_file, stringsAsFactors = FALSE) %>%
+  mutate(state = trimws(state), cluster = trimws(cluster))
 
 cluster_labels <- assignments %>%
   group_by(cluster) %>%
@@ -58,9 +41,15 @@ cluster_labels <- assignments %>%
 curves <- curves %>%
   left_join(cluster_labels %>% select(cluster, label), by = "cluster") %>%
   mutate(
-    component = factor(component, levels = c("lag0", "lag13")),
     period = factor(period, levels = c("2018-2021", "2022-2025")),
-    cluster = factor(cluster, levels = paste0("cluster_", 1:4))
+    cluster = factor(cluster, levels = sort(unique(cluster))),
+    label = factor(label, levels = cluster_labels$label[match(levels(cluster), cluster_labels$cluster)])
+  )
+
+effects <- effects %>%
+  mutate(
+    period = factor(period, levels = c("2018-2021", "2022-2025")),
+    cluster = factor(cluster, levels = levels(curves$cluster))
   )
 
 cluster_colors <- c(
@@ -75,101 +64,150 @@ period_lty <- c(
   "2022-2025" = 2
 )
 
-plot_component <- function(component_name, panel_title) {
-  df <- curves %>% filter(component == component_name)
+period_fill <- c(
+  "2018-2021" = "#D9E7F5",
+  "2022-2025" = "#FBE5D6"
+)
+
+plot_cluster_panel <- function(cluster_name) {
+  df <- curves %>%
+    filter(cluster == cluster_name) %>%
+    filter(is.finite(or_cumulative), is.finite(or_low_95), is.finite(or_high_95)) %>%
+    arrange(period, temperature_c)
+
+  meta_df <- effects %>% filter(cluster == cluster_name)
+  cluster_label <- cluster_labels$label[match(as.character(cluster_name), cluster_labels$cluster)]
 
   if (nrow(df) == 0) {
     plot.new()
-    title(panel_title)
-    text(0.5, 0.5, paste("No data for", component_name))
+    title(main = cluster_label)
+    text(0.5, 0.5, "No finite pooled curve data")
     return(invisible(NULL))
   }
 
-  y_limits <- range(c(df$rr_low_95, df$rr_high_95), finite = TRUE)
   x_limits <- range(df$temperature_c, finite = TRUE)
+  y_limits <- range(c(df$or_low_95, df$or_high_95), finite = TRUE)
+  y_limits[1] <- min(y_limits[1], 1)
+  y_limits[2] <- max(y_limits[2], 1)
 
   plot(
     NA,
     xlim = x_limits,
     ylim = y_limits,
     xlab = "Temperature (C)",
-    ylab = "Relative Risk (RR)",
-    main = panel_title,
+    ylab = "Cumulative OR",
+    main = cluster_label,
     las = 1
   )
   grid(col = "gray88")
   abline(h = 1, lty = 3, col = "gray45")
-  abline(v = reference_temp_c, lty = 3, col = "gray45")
 
-  for (cl in levels(df$cluster)) {
-    for (pd in levels(df$period)) {
-      sub_df <- df %>%
-        filter(cluster == cl, period == pd) %>%
-        arrange(temperature_c)
+  for (pd in levels(df$period)) {
+    band_df <- df %>%
+      filter(period == pd) %>%
+      arrange(temperature_c)
 
-      if (nrow(sub_df) == 0) {
-        next
-      }
+    if (nrow(band_df) == 0) {
+      next
+    }
 
-      lines(
-        sub_df$temperature_c,
-        sub_df$rr,
-        col = cluster_colors[[cl]],
-        lty = period_lty[[pd]],
-        lwd = 2
-      )
+    fill_col <- grDevices::adjustcolor(period_fill[[pd]], alpha.f = 0.45)
+    polygon(
+      x = c(band_df$temperature_c, rev(band_df$temperature_c)),
+      y = c(band_df$or_low_95, rev(band_df$or_high_95)),
+      col = fill_col,
+      border = NA
+    )
+  }
+
+  for (pd in levels(df$period)) {
+    line_df <- df %>%
+      filter(period == pd) %>%
+      arrange(temperature_c)
+
+    if (nrow(line_df) == 0) {
+      next
+    }
+
+    lines(
+      line_df$temperature_c,
+      line_df$or_cumulative,
+      col = cluster_colors[[as.character(cluster_name)]],
+      lty = period_lty[[pd]],
+      lwd = 2.5
+    )
+
+    center_x <- meta_df$centering_temp_c[meta_df$period == pd][1]
+    if (is.finite(center_x)) {
+      abline(v = center_x, lty = period_lty[[pd]], col = "gray55")
     }
   }
+
+  legend(
+    "topright",
+    legend = c(
+      paste0("States: ", nrow(assignments %>% filter(cluster == cluster_name))),
+      paste0("2018-2021 center: ", round(meta_df$centering_temp_c[meta_df$period == "2018-2021"][1], 1), " C"),
+      paste0("2022-2025 center: ", round(meta_df$centering_temp_c[meta_df$period == "2022-2025"][1], 1), " C")
+    ),
+    bty = "n",
+    cex = 0.75
+  )
 }
 
 draw_legends <- function() {
   legend(
-    "topleft",
-    legend = cluster_labels$label[match(names(cluster_colors), cluster_labels$cluster)],
-    col = unname(cluster_colors),
-    lty = 1,
-    lwd = 2,
-    bty = "n",
-    cex = 0.8
-  )
-  legend(
-    "topright",
+    "bottomleft",
     legend = names(period_lty),
     col = "black",
     lty = unname(period_lty),
-    lwd = 2,
+    lwd = 2.5,
     bty = "n",
-    cex = 0.8,
+    cex = 0.85,
     title = "Period"
+  )
+  legend(
+    "bottomright",
+    legend = c("95% CI: 2018-2021", "95% CI: 2022-2025"),
+    fill = grDevices::adjustcolor(unname(period_fill), alpha.f = 0.45),
+    border = NA,
+    bty = "n",
+    cex = 0.85
   )
 }
 
 make_figure <- function(device_fun, file, width, height) {
   device_fun(file, width = width, height = height)
-  op <- par(mfrow = c(1, 2), mar = c(4, 4, 4, 1) + 0.1, oma = c(0, 0, 2, 0))
+  op <- par(mfrow = c(2, 2), mar = c(4, 4, 3, 1) + 0.1, oma = c(0, 0, 3, 0))
   on.exit({
     par(op)
     dev.off()
   }, add = TRUE)
 
-  plot_component("lag0", "A. Pooled lag 0 relationship")
+  for (cl in levels(curves$cluster)) {
+    plot_cluster_panel(cl)
+  }
+
   draw_legends()
-  plot_component("lag13", "B. Pooled lag 1-3 week average relationship")
-  mtext(paste0("Temperature and N18 mortality pooled curves by cluster (reference = ", round(reference_temp_c, 1), " C)"), outer = TRUE, cex = 1.1)
+  mtext(
+    "N18 pooled cluster-period temperature curves\nDLNM cumulative odds-ratio-scale associations within cluster-specific 1st-99th percentile ranges",
+    outer = TRUE,
+    cex = 1.05
+  )
 }
 
 make_figure(
   function(file, width, height) png(file, width = width, height = height, res = 140),
   png_out,
   width = 2200,
-  height = 900
+  height = 1600
 )
 
 make_figure(
   pdf,
   pdf_out,
   width = 14,
-  height = 6
+  height = 10
 )
 
 cat("Wrote:", png_out, "\n")

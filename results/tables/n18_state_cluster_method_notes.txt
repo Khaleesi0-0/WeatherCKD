@@ -1,4 +1,4 @@
-Adapted N18 state-level cluster/meta-smoothing workflow
+Adapted N18 state-level cluster/meta-DLNM workflow
 
 Inputs:
 - data/processed/ckd_2018_2022_cleaned.csv
@@ -10,9 +10,9 @@ Method notes:
 - Uses hierarchical clustering with method ward.D2 on state seasonal temperature mean and SD.
 - Targets 4 clusters with a minimum cluster size of 3; if needed, the script reduces the cluster count until that requirement is met.
 - Uses two multi-year periods based on available state-week data: 2018-2021 and 2022-2025.
-- Uses quasi-Poisson GAMs with a natural spline for time plus quadratic B-spline terms for current-week temperature and the lag 1-3 week mean temperature.
-- Uses the empirical median weekly temperature as the centering temperature (MMT/reference): 14.757 C.
-- Defines the absolute cold contrast as the average state-specific 10th percentile (2.568 C) versus 14.757 C.
-- Defines the absolute heat contrast as the average state-specific 90th percentile (25.389 C) versus 14.757 C.
-- Cluster-specific temperature basis knots are shared within each cluster-period to preserve coefficient interpretation across states inside that cluster-period.
-- This is not a literal replication of the published city-daily pipeline; it is the closest state-week adaptation supported by the local files.
+- Within each cluster-period, the weather-impact model uses a DLNM with conditional Poisson estimation via stratum elimination, matching the case-crossover stratification structure used for conditional logistic analyses on aggregated weekly counts.
+- Temperature is restricted to the 1st-99th percentile within each cluster-period before model fitting and effect estimation.
+- Maximum lag is 3 weeks, with a natural spline temperature basis and log-spaced lag knots.
+- State-specific cumulative temperature associations are reduced to the overall temperature basis and then pooled within each cluster-period using multivariate meta-analysis.
+- Effect estimates are reported as cumulative odds-ratio-scale contrasts with 95 % confidence intervals for the pooled cluster-period curves.
+- This is not a literal replication of the published city-daily conditional logistic pipeline; it is the closest state-week adaptation supported by the local files while keeping the clustering method unchanged.

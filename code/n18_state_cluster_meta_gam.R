@@ -1,9 +1,11 @@
 suppressPackageStartupMessages({
   library(dplyr)
+  library(dlnm)
+  library(gnm)
   library(lubridate)
-  library(tidyr)
-  library(splines)
   library(mvmeta)
+  library(splines)
+  library(tidyr)
 })
 
 ckd_file <- "data/processed/ckd_2018_2022_cleaned.csv"
@@ -21,6 +23,9 @@ min_cluster_size <- 3
 clustering_method <- "ward.D2"
 period_breaks <- c(2018L, 2022L, 2026L)
 period_labels <- c("2018-2021", "2022-2025")
+max_lag_weeks <- 3
+var_knots_probs <- c(0.10, 0.75, 0.90)
+temp_restriction_probs <- c(0.01, 0.99)
 
 if (!file.exists(ckd_file)) {
   stop("Input file not found: ", ckd_file)
@@ -52,71 +57,15 @@ period_from_year <- function(year_num) {
     as.character()
 }
 
-make_basis_spec <- function(x, probs = c(0.10, 0.50, 0.90), degree = 2) {
-  x <- x[is.finite(x)]
-  rng <- range(x, na.rm = TRUE)
-  knots <- as.numeric(stats::quantile(x, probs = probs, na.rm = TRUE, names = FALSE))
-  knots <- unique(knots)
-
-  if (length(knots) < length(probs)) {
-    knots <- seq(rng[1], rng[2], length.out = length(probs) + 2)[2:(length(probs) + 1)]
-  }
-
-  list(
-    knots = knots,
-    boundary = rng,
-    degree = degree
-  )
-}
-
-build_basis_matrix <- function(x, spec, prefix) {
-  mat <- splines::bs(
-    x,
-    degree = spec$degree,
-    knots = spec$knots,
-    Boundary.knots = spec$boundary,
-    intercept = FALSE
-  )
-  colnames(mat) <- paste0(prefix, seq_len(ncol(mat)))
-  as.data.frame(mat)
-}
-
-predict_component_rr <- function(temp_value, ref_value, beta, vcov_mat, spec) {
-  if (!is.finite(temp_value) || !is.finite(ref_value)) {
-    return(c(rr = NA_real_, rr_low_95 = NA_real_, rr_high_95 = NA_real_))
-  }
-
-  lower <- spec$boundary[1]
-  upper <- spec$boundary[2]
-  if (temp_value < lower || temp_value > upper || ref_value < lower || ref_value > upper) {
-    return(c(rr = NA_real_, rr_low_95 = NA_real_, rr_high_95 = NA_real_))
-  }
-
-  basis_temp <- as.numeric(build_basis_matrix(temp_value, spec, "tmp"))
-  basis_ref <- as.numeric(build_basis_matrix(ref_value, spec, "tmp"))
-  diff_vec <- basis_temp - basis_ref
-  eta <- sum(diff_vec * beta)
-  se <- sqrt(drop(diff_vec %*% vcov_mat %*% diff_vec))
-
-  c(
-    rr = exp(eta),
-    rr_low_95 = exp(eta - 1.96 * se),
-    rr_high_95 = exp(eta + 1.96 * se)
-  )
-}
-
 safe_qtest_value <- function(q_obj, field) {
-  if (is.null(q_obj)) {
-    return(NA_real_)
-  }
-  if (!field %in% names(q_obj)) {
+  if (is.null(q_obj) || !field %in% names(q_obj)) {
     return(NA_real_)
   }
   as.numeric(q_obj[[field]][1])
 }
 
 make_pos_def <- function(mat, min_eigen = 1e-6) {
-  if (any(!is.finite(mat))) {
+  if (is.null(mat) || any(!is.finite(mat))) {
     return(NULL)
   }
 
@@ -136,14 +85,66 @@ make_pos_def <- function(mat, min_eigen = 1e-6) {
   repaired
 }
 
+build_var_basis <- function(x, argvar) {
+  basis <- dlnm::onebasis(
+    x,
+    fun = argvar$fun,
+    knots = argvar$knots,
+    Boundary.knots = argvar$Boundary.knots
+  )
+  as.matrix(basis)
+}
+
+make_argvar <- function(x, probs) {
+  bounds <- as.numeric(stats::quantile(x, probs = temp_restriction_probs, na.rm = TRUE, names = FALSE))
+  knots <- as.numeric(stats::quantile(x, probs = probs, na.rm = TRUE, names = FALSE))
+  knots <- unique(knots)
+
+  if (length(knots) == 0) {
+    knots <- mean(bounds)
+  } else if (length(knots) == 1) {
+    knots <- knots[1]
+  }
+
+  list(
+    fun = "ns",
+    knots = knots,
+    Boundary.knots = bounds
+  )
+}
+
+predict_cumulative_or <- function(temp_value, ref_value, beta, vcov_mat, argvar) {
+  if (!is.finite(temp_value) || !is.finite(ref_value)) {
+    return(c(or = NA_real_, or_low_95 = NA_real_, or_high_95 = NA_real_))
+  }
+
+  bounds <- argvar$Boundary.knots
+  if (temp_value < bounds[1] || temp_value > bounds[2] || ref_value < bounds[1] || ref_value > bounds[2]) {
+    return(c(or = NA_real_, or_low_95 = NA_real_, or_high_95 = NA_real_))
+  }
+
+  basis_temp <- as.numeric(build_var_basis(temp_value, argvar))
+  basis_ref <- as.numeric(build_var_basis(ref_value, argvar))
+  diff_vec <- basis_temp - basis_ref
+  eta <- sum(diff_vec * beta)
+  se <- sqrt(drop(diff_vec %*% vcov_mat %*% diff_vec))
+
+  c(
+    or = exp(eta),
+    or_low_95 = exp(eta - 1.96 * se),
+    or_high_95 = exp(eta + 1.96 * se)
+  )
+}
+
 ckd <- read.csv(ckd_file, stringsAsFactors = FALSE) %>%
   mutate(
     state = trimws(state),
     week_end_date = as.Date(week_end_date),
     year = as.integer(year),
+    week = suppressWarnings(as.integer(week)),
     deaths = suppressWarnings(as.numeric(deaths))
   ) %>%
-  filter(!is.na(state), state != "", !is.na(week_end_date), !is.na(year), !is.na(deaths), deaths >= 0)
+  filter(!is.na(state), state != "", !is.na(week_end_date), !is.na(year), !is.na(week), !is.na(deaths), deaths >= 0)
 
 weather <- read.csv(weather_file, stringsAsFactors = FALSE) %>%
   mutate(
@@ -154,7 +155,7 @@ weather <- read.csv(weather_file, stringsAsFactors = FALSE) %>%
   filter(!is.na(state), state != "", !is.na(week_end_date), !is.na(tmean_C_weekly))
 
 analysis_df <- ckd %>%
-  group_by(state, week_end_date, year) %>%
+  group_by(state, week_end_date, year, week) %>%
   summarise(
     deaths = sum(deaths, na.rm = TRUE),
     .groups = "drop"
@@ -170,35 +171,8 @@ analysis_df <- ckd %>%
     season = season_from_month(month),
     period = period_from_year(year)
   ) %>%
-  arrange(state, week_end_date) %>%
-  group_by(state) %>%
-  mutate(
-    temp_lag0 = tmean_C_weekly,
-    temp_lag1 = lag(tmean_C_weekly, 1),
-    temp_lag2 = lag(tmean_C_weekly, 2),
-    temp_lag3 = lag(tmean_C_weekly, 3),
-    temp_lag13 = ifelse(
-      rowSums(is.na(cbind(temp_lag1, temp_lag2, temp_lag3))) == 0,
-      rowMeans(cbind(temp_lag1, temp_lag2, temp_lag3)),
-      NA_real_
-    )
-  ) %>%
-  ungroup() %>%
-  filter(!is.na(period))
-
-absolute_reference_c <- as.numeric(stats::quantile(analysis_df$tmean_C_weekly, probs = 0.50, na.rm = TRUE, names = FALSE))
-state_percentile_summary <- analysis_df %>%
-  group_by(state) %>%
-  summarise(
-    temp_p10 = as.numeric(stats::quantile(tmean_C_weekly, probs = 0.10, na.rm = TRUE, names = FALSE)),
-    temp_p90 = as.numeric(stats::quantile(tmean_C_weekly, probs = 0.90, na.rm = TRUE, names = FALSE)),
-    .groups = "drop"
-  )
-absolute_cold_c <- mean(state_percentile_summary$temp_p10, na.rm = TRUE)
-absolute_heat_c <- mean(state_percentile_summary$temp_p90, na.rm = TRUE)
-reference_label <- gsub("\\.", "_", format(round(absolute_reference_c, 1), nsmall = 1))
-heat_label <- gsub("\\.", "_", format(round(absolute_heat_c, 1), nsmall = 1))
-cold_label <- gsub("\\.", "_", format(round(absolute_cold_c, 1), nsmall = 1))
+  filter(!is.na(period)) %>%
+  arrange(state, week_end_date)
 
 cluster_features <- analysis_df %>%
   group_by(state, season) %>%
@@ -227,7 +201,7 @@ while (n_clusters >= 2 && !cluster_sizes_ok) {
   cluster_ids <- cutree(hc, k = n_clusters)
   cluster_sizes_ok <- min(as.integer(table(cluster_ids))) >= min_cluster_size
   if (!cluster_sizes_ok) {
-    n_clusters <- n_clusters - 1
+    n_clusters <- n_clusters - 1L
   }
 }
 
@@ -246,35 +220,42 @@ write.csv(cluster_assignments, cluster_assignments_out, row.names = FALSE)
 analysis_df <- analysis_df %>%
   inner_join(cluster_assignments, by = "state")
 
-fit_state_model <- function(df_state, lag0_spec, lag13_spec) {
+fit_state_model <- function(df_state, argvar, arglag, temp_bounds) {
   model_df <- df_state %>%
-    filter(!is.na(temp_lag0), !is.na(temp_lag13)) %>%
     arrange(week_end_date) %>%
-    mutate(time_num = as.numeric(week_end_date))
+    filter(
+      is.finite(tmean_C_weekly),
+      tmean_C_weekly >= temp_bounds[1],
+      tmean_C_weekly <= temp_bounds[2]
+    ) %>%
+    mutate(
+      stratum = as.factor(interaction(state, year, month, drop = TRUE))
+    )
 
-  if (nrow(model_df) < 52) {
+  valid_strata <- model_df %>%
+    count(stratum, name = "n_obs") %>%
+    filter(n_obs >= 2) %>%
+    pull(stratum)
+
+  model_df <- model_df %>% filter(stratum %in% valid_strata)
+
+  if (nrow(model_df) < 52 || length(unique(model_df$stratum)) < 10) {
     return(NULL)
   }
 
-  n_years <- length(unique(model_df$year))
-  time_df <- max(4, min(6 * n_years, floor(nrow(model_df) / 8)))
-
-  lag0_basis <- build_basis_matrix(model_df$temp_lag0, lag0_spec, "lag0_b")
-  lag13_basis <- build_basis_matrix(model_df$temp_lag13, lag13_spec, "lag13_b")
-  basis_names <- c(colnames(lag0_basis), colnames(lag13_basis))
-
-  model_frame <- bind_cols(model_df, lag0_basis, lag13_basis)
-  formula_txt <- paste(
-    "deaths ~ ns(time_num, df = ", time_df, ") + ",
-    paste(basis_names, collapse = " + "),
-    sep = ""
+  cb_temp <- dlnm::crossbasis(
+    model_df$tmean_C_weekly,
+    lag = max_lag_weeks,
+    argvar = argvar,
+    arglag = arglag
   )
 
   fit <- tryCatch(
-    glm(
-      as.formula(formula_txt),
+    gnm::gnm(
+      deaths ~ cb_temp,
+      eliminate = stratum,
       family = quasipoisson(),
-      data = model_frame,
+      data = model_df,
       na.action = na.exclude
     ),
     error = function(e) NULL
@@ -284,9 +265,27 @@ fit_state_model <- function(df_state, lag0_spec, lag13_spec) {
     return(NULL)
   }
 
-  coef_vec <- coef(fit)[basis_names]
-  vcov_mat <- vcov(fit)[basis_names, basis_names, drop = FALSE]
-  vcov_mat <- make_pos_def(vcov_mat)
+  pred0 <- tryCatch(
+    dlnm::crosspred(cb_temp, fit, by = 0.1),
+    error = function(e) NULL
+  )
+
+  if (is.null(pred0)) {
+    return(NULL)
+  }
+
+  centering_temp <- pred0$predvar[which.min(pred0$allRRfit)]
+  red <- tryCatch(
+    dlnm::crossreduce(cb_temp, fit, type = "overall", cen = centering_temp),
+    error = function(e) NULL
+  )
+
+  if (is.null(red)) {
+    return(NULL)
+  }
+
+  coef_vec <- stats::coef(red)
+  vcov_mat <- make_pos_def(stats::vcov(red))
 
   if (is.null(vcov_mat) || any(!is.finite(coef_vec))) {
     return(NULL)
@@ -295,7 +294,9 @@ fit_state_model <- function(df_state, lag0_spec, lag13_spec) {
   list(
     state = unique(model_df$state)[1],
     n_obs = nrow(model_df),
-    n_years = n_years,
+    n_years = length(unique(model_df$year)),
+    n_strata = length(unique(model_df$stratum)),
+    centering_temp = centering_temp,
     coef = coef_vec,
     vcov = vcov_mat
   )
@@ -328,10 +329,37 @@ for (i in seq_len(nrow(cluster_period_keys))) {
     next
   }
 
-  lag0_spec <- make_basis_spec(subset_df$temp_lag0)
-  lag13_spec <- make_basis_spec(subset_df$temp_lag13[is.finite(subset_df$temp_lag13)])
+  temp_bounds <- as.numeric(stats::quantile(
+    subset_df$tmean_C_weekly,
+    probs = temp_restriction_probs,
+    na.rm = TRUE,
+    names = FALSE
+  ))
 
-  state_fits <- lapply(split(subset_df, subset_df$state), fit_state_model, lag0_spec = lag0_spec, lag13_spec = lag13_spec)
+  restricted_df <- subset_df %>%
+    filter(
+      is.finite(tmean_C_weekly),
+      tmean_C_weekly >= temp_bounds[1],
+      tmean_C_weekly <= temp_bounds[2]
+    )
+
+  if (nrow(restricted_df) < 100) {
+    next
+  }
+
+  argvar <- make_argvar(restricted_df$tmean_C_weekly, var_knots_probs)
+  arglag <- list(
+    fun = "ns",
+    knots = dlnm::logknots(max_lag_weeks, nk = 2)
+  )
+
+  state_fits <- lapply(
+    split(subset_df, subset_df$state),
+    fit_state_model,
+    argvar = argvar,
+    arglag = arglag,
+    temp_bounds = temp_bounds
+  )
   state_fits <- Filter(Negate(is.null), state_fits)
 
   if (length(state_fits) < 2) {
@@ -345,6 +373,8 @@ for (i in seq_len(nrow(cluster_period_keys))) {
       state = state_fit$state,
       n_obs = state_fit$n_obs,
       n_years = state_fit$n_years,
+      n_strata = state_fit$n_strata,
+      centering_temp_c = state_fit$centering_temp,
       term = names(state_fit$coef),
       coefficient = as.numeric(state_fit$coef),
       stringsAsFactors = FALSE
@@ -368,89 +398,108 @@ for (i in seq_len(nrow(cluster_period_keys))) {
     next
   }
 
-  pooled_beta <- coef(meta_fit)
-  pooled_vcov <- vcov(meta_fit)
+  pooled_beta <- stats::coef(meta_fit)
+  pooled_vcov <- make_pos_def(stats::vcov(meta_fit))
+  if (is.null(pooled_vcov)) {
+    next
+  }
   q_info <- tryCatch(mvmeta::qtest(meta_fit), error = function(e) NULL)
 
-  lag0_names <- grep("^lag0_b", names(pooled_beta), value = TRUE)
-  lag13_names <- grep("^lag13_b", names(pooled_beta), value = TRUE)
+  state_centering_values <- vapply(state_fits, function(x) x$centering_temp, numeric(1))
+  pooled_centering_temp <- mean(state_centering_values, na.rm = TRUE)
 
-  lag0_beta <- pooled_beta[lag0_names]
-  lag0_vcov <- pooled_vcov[lag0_names, lag0_names, drop = FALSE]
-  lag13_beta <- pooled_beta[lag13_names]
-  lag13_vcov <- pooled_vcov[lag13_names, lag13_names, drop = FALSE]
+  temp_percentiles <- as.numeric(stats::quantile(
+    restricted_df$tmean_C_weekly,
+    probs = c(0.01, 0.50, 0.99),
+    na.rm = TRUE,
+    names = FALSE
+  ))
 
-  heat_abs <- predict_component_rr(absolute_heat_c, absolute_reference_c, lag0_beta, lag0_vcov, lag0_spec)
-  cold_abs <- predict_component_rr(absolute_cold_c, absolute_reference_c, lag13_beta, lag13_vcov, lag13_spec)
-
-  lag0_pct <- as.numeric(stats::quantile(subset_df$temp_lag0, probs = c(0.01, 0.50, 0.99), na.rm = TRUE, names = FALSE))
-  lag13_pct <- as.numeric(stats::quantile(subset_df$temp_lag13, probs = c(0.01, 0.50, 0.99), na.rm = TRUE, names = FALSE))
-  heat_rel <- predict_component_rr(lag0_pct[3], lag0_pct[2], lag0_beta, lag0_vcov, lag0_spec)
-  cold_rel <- predict_component_rr(lag13_pct[1], lag13_pct[2], lag13_beta, lag13_vcov, lag13_spec)
+  heat_effect <- predict_cumulative_or(
+    temp_percentiles[3],
+    pooled_centering_temp,
+    pooled_beta,
+    pooled_vcov,
+    argvar
+  )
+  cold_effect <- predict_cumulative_or(
+    temp_percentiles[1],
+    pooled_centering_temp,
+    pooled_beta,
+    pooled_vcov,
+    argvar
+  )
+  relative_heat <- predict_cumulative_or(
+    temp_percentiles[3],
+    temp_percentiles[2],
+    pooled_beta,
+    pooled_vcov,
+    argvar
+  )
+  relative_cold <- predict_cumulative_or(
+    temp_percentiles[1],
+    temp_percentiles[2],
+    pooled_beta,
+    pooled_vcov,
+    argvar
+  )
 
   cluster_meta_rows[[meta_counter]] <- data.frame(
     cluster = cluster_i,
     period = period_i,
     n_states = length(state_fits),
-    heat_rr = heat_abs["rr"],
-    heat_rr_low_95 = heat_abs["rr_low_95"],
-    heat_rr_high_95 = heat_abs["rr_high_95"],
-    cold_rr = cold_abs["rr"],
-    cold_rr_low_95 = cold_abs["rr_low_95"],
-    cold_rr_high_95 = cold_abs["rr_high_95"],
-    relative_heat_rr_p99_vs_p50 = heat_rel["rr"],
-    relative_heat_rr_low_95 = heat_rel["rr_low_95"],
-    relative_heat_rr_high_95 = heat_rel["rr_high_95"],
-    relative_cold_rr_p01_vs_p50 = cold_rel["rr"],
-    relative_cold_rr_low_95 = cold_rel["rr_low_95"],
-    relative_cold_rr_high_95 = cold_rel["rr_high_95"],
+    temp_p01_c = temp_percentiles[1],
+    temp_p50_c = temp_percentiles[2],
+    temp_p99_c = temp_percentiles[3],
+    centering_temp_c = pooled_centering_temp,
+    heat_or_p99_vs_center = heat_effect["or"],
+    heat_or_low_95 = heat_effect["or_low_95"],
+    heat_or_high_95 = heat_effect["or_high_95"],
+    cold_or_p01_vs_center = cold_effect["or"],
+    cold_or_low_95 = cold_effect["or_low_95"],
+    cold_or_high_95 = cold_effect["or_high_95"],
+    relative_heat_or_p99_vs_p50 = relative_heat["or"],
+    relative_heat_or_low_95 = relative_heat["or_low_95"],
+    relative_heat_or_high_95 = relative_heat["or_high_95"],
+    relative_cold_or_p01_vs_p50 = relative_cold["or"],
+    relative_cold_or_low_95 = relative_cold["or_low_95"],
+    relative_cold_or_high_95 = relative_cold["or_high_95"],
     q_stat = safe_qtest_value(q_info, "qstat"),
     q_df = safe_qtest_value(q_info, "df"),
     q_pvalue = safe_qtest_value(q_info, "pvalue"),
     i2 = safe_qtest_value(q_info, "i2"),
     stringsAsFactors = FALSE
   )
-  names(cluster_meta_rows[[meta_counter]])[names(cluster_meta_rows[[meta_counter]]) == "heat_rr"] <- paste0("heat_rr_", heat_label, "_vs_", reference_label)
-  names(cluster_meta_rows[[meta_counter]])[names(cluster_meta_rows[[meta_counter]]) == "cold_rr"] <- paste0("cold_rr_", cold_label, "_vs_", reference_label)
   meta_counter <- meta_counter + 1L
 
-  lag0_grid <- seq(lag0_spec$boundary[1], lag0_spec$boundary[2], length.out = 100)
-  lag13_grid <- seq(lag13_spec$boundary[1], lag13_spec$boundary[2], length.out = 100)
-
-  lag0_curve <- t(sapply(lag0_grid, function(x) {
-    predict_component_rr(x, absolute_reference_c, lag0_beta, lag0_vcov, lag0_spec)
-  }))
-  lag13_curve <- t(sapply(lag13_grid, function(x) {
-    predict_component_rr(x, absolute_reference_c, lag13_beta, lag13_vcov, lag13_spec)
-  }))
-
-  cluster_curve_rows[[curve_counter]] <- data.frame(
-    cluster = cluster_i,
-    period = period_i,
-    component = "lag0",
-    temperature_c = lag0_grid,
-    rr = lag0_curve[, "rr"],
-    rr_low_95 = lag0_curve[, "rr_low_95"],
-    rr_high_95 = lag0_curve[, "rr_high_95"],
-    stringsAsFactors = FALSE
-  )
-  curve_counter <- curve_counter + 1L
+  temp_grid <- seq(temp_bounds[1], temp_bounds[2], length.out = 100)
+  curve_vals <- t(vapply(temp_grid, function(x) {
+    predict_cumulative_or(
+      x,
+      pooled_centering_temp,
+      pooled_beta,
+      pooled_vcov,
+      argvar
+    )
+  }, numeric(3)))
 
   cluster_curve_rows[[curve_counter]] <- data.frame(
     cluster = cluster_i,
     period = period_i,
-    component = "lag13",
-    temperature_c = lag13_grid,
-    rr = lag13_curve[, "rr"],
-    rr_low_95 = lag13_curve[, "rr_low_95"],
-    rr_high_95 = lag13_curve[, "rr_high_95"],
+    temperature_c = temp_grid,
+    or_cumulative = curve_vals[, "or"],
+    or_low_95 = curve_vals[, "or_low_95"],
+    or_high_95 = curve_vals[, "or_high_95"],
+    centering_temp_c = pooled_centering_temp,
+    temp_lower_bound_c = temp_bounds[1],
+    temp_upper_bound_c = temp_bounds[2],
     stringsAsFactors = FALSE
   )
   curve_counter <- curve_counter + 1L
 }
 
 if (length(state_model_rows) == 0 || length(cluster_meta_rows) == 0) {
-  stop("No cluster-period combinations had enough state-level data to fit the adapted GAM/meta-analysis workflow.")
+  stop("No cluster-period combinations had enough state-level data to fit the cluster DLNM/meta-analysis workflow.")
 }
 
 write.csv(bind_rows(state_model_rows), state_model_out, row.names = FALSE)
@@ -459,7 +508,7 @@ write.csv(bind_rows(cluster_curve_rows), cluster_curve_out, row.names = FALSE)
 
 writeLines(
   c(
-    "Adapted N18 state-level cluster/meta-smoothing workflow",
+    "Adapted N18 state-level cluster/meta-DLNM workflow",
     "",
     "Inputs:",
     paste0("- ", ckd_file),
@@ -471,12 +520,12 @@ writeLines(
     paste0("- Uses hierarchical clustering with method ", clustering_method, " on state seasonal temperature mean and SD."),
     paste0("- Targets ", n_clusters_target, " clusters with a minimum cluster size of ", min_cluster_size, "; if needed, the script reduces the cluster count until that requirement is met."),
     "- Uses two multi-year periods based on available state-week data: 2018-2021 and 2022-2025.",
-    "- Uses quasi-Poisson GAMs with a natural spline for time plus quadratic B-spline terms for current-week temperature and the lag 1-3 week mean temperature.",
-    paste0("- Uses the empirical median weekly temperature as the centering temperature (MMT/reference): ", round(absolute_reference_c, 3), " C."),
-    paste0("- Defines the absolute cold contrast as the average state-specific 10th percentile (", round(absolute_cold_c, 3), " C) versus ", round(absolute_reference_c, 3), " C."),
-    paste0("- Defines the absolute heat contrast as the average state-specific 90th percentile (", round(absolute_heat_c, 3), " C) versus ", round(absolute_reference_c, 3), " C."),
-    "- Cluster-specific temperature basis knots are shared within each cluster-period to preserve coefficient interpretation across states inside that cluster-period.",
-    "- This is not a literal replication of the published city-daily pipeline; it is the closest state-week adaptation supported by the local files."
+    "- Within each cluster-period, the weather-impact model uses a DLNM with conditional Poisson estimation via stratum elimination, matching the case-crossover stratification structure used for conditional logistic analyses on aggregated weekly counts.",
+    "- Temperature is restricted to the 1st-99th percentile within each cluster-period before model fitting and effect estimation.",
+    paste0("- Maximum lag is ", max_lag_weeks, " weeks, with a natural spline temperature basis and log-spaced lag knots."),
+    "- State-specific cumulative temperature associations are reduced to the overall temperature basis and then pooled within each cluster-period using multivariate meta-analysis.",
+    "- Effect estimates are reported as cumulative odds-ratio-scale contrasts with 95 % confidence intervals for the pooled cluster-period curves.",
+    "- This is not a literal replication of the published city-daily conditional logistic pipeline; it is the closest state-week adaptation supported by the local files while keeping the clustering method unchanged."
   ),
   method_notes_out
 )
