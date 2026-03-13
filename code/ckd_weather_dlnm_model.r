@@ -80,7 +80,10 @@ curve_df <- data.frame(
   temperature_C = pred$predvar,
   rr_cumulative = pred$allRRfit,
   rr_low_95 = pred$allRRlow,
-  rr_high_95 = pred$allRRhigh
+  rr_high_95 = pred$allRRhigh,
+  or_cumulative = pred$allRRfit,
+  or_low_95 = pred$allRRlow,
+  or_high_95 = pred$allRRhigh
 )
 
 pct_vals <- quantile(df$tmean_C_weekly, probs = c(0.01, 0.10, 0.50, 0.90, 0.99), na.rm = TRUE)
@@ -95,7 +98,10 @@ pct_out <- data.frame(
   temperature_C = pct_df$temperature_C,
   rr_cumulative = curve_df$rr_cumulative[nearest_idx],
   rr_low_95 = curve_df$rr_low_95[nearest_idx],
-  rr_high_95 = curve_df$rr_high_95[nearest_idx]
+  rr_high_95 = curve_df$rr_high_95[nearest_idx],
+  or_cumulative = curve_df$or_cumulative[nearest_idx],
+  or_low_95 = curve_df$or_low_95[nearest_idx],
+  or_high_95 = curve_df$or_high_95[nearest_idx]
 )
 
 write.csv(curve_df, out_curve, row.names = FALSE)
@@ -126,7 +132,9 @@ cat("Max lag (weeks):", max_lag_weeks, "\n")
 cat("Centering temperature (MMT):", round(mmt, 3), "C\n\n")
 print(summary(model))
 cat("\nCumulative RR at selected percentiles\n")
-print(pct_out)
+print(pct_out %>% select(percentile, temperature_C, rr_cumulative, rr_low_95, rr_high_95))
+cat("\nCumulative OR at selected percentiles\n")
+print(pct_out %>% select(percentile, temperature_C, or_cumulative, or_low_95, or_high_95))
 sink()
 
 cat("Modeling complete.\n")

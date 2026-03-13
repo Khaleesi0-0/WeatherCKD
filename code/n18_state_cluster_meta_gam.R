@@ -113,14 +113,14 @@ make_argvar <- function(x, probs) {
   )
 }
 
-predict_cumulative_or <- function(temp_value, ref_value, beta, vcov_mat, argvar) {
+predict_cumulative_rr <- function(temp_value, ref_value, beta, vcov_mat, argvar) {
   if (!is.finite(temp_value) || !is.finite(ref_value)) {
-    return(c(or = NA_real_, or_low_95 = NA_real_, or_high_95 = NA_real_))
+    return(c(rr = NA_real_, rr_low_95 = NA_real_, rr_high_95 = NA_real_))
   }
 
   bounds <- argvar$Boundary.knots
   if (temp_value < bounds[1] || temp_value > bounds[2] || ref_value < bounds[1] || ref_value > bounds[2]) {
-    return(c(or = NA_real_, or_low_95 = NA_real_, or_high_95 = NA_real_))
+    return(c(rr = NA_real_, rr_low_95 = NA_real_, rr_high_95 = NA_real_))
   }
 
   basis_temp <- as.numeric(build_var_basis(temp_value, argvar))
@@ -130,9 +130,9 @@ predict_cumulative_or <- function(temp_value, ref_value, beta, vcov_mat, argvar)
   se <- sqrt(drop(diff_vec %*% vcov_mat %*% diff_vec))
 
   c(
-    or = exp(eta),
-    or_low_95 = exp(eta - 1.96 * se),
-    or_high_95 = exp(eta + 1.96 * se)
+    rr = exp(eta),
+    rr_low_95 = exp(eta - 1.96 * se),
+    rr_high_95 = exp(eta + 1.96 * se)
   )
 }
 
@@ -415,28 +415,28 @@ for (i in seq_len(nrow(cluster_period_keys))) {
     names = FALSE
   ))
 
-  heat_effect <- predict_cumulative_or(
+  heat_effect <- predict_cumulative_rr(
     temp_percentiles[3],
     pooled_centering_temp,
     pooled_beta,
     pooled_vcov,
     argvar
   )
-  cold_effect <- predict_cumulative_or(
+  cold_effect <- predict_cumulative_rr(
     temp_percentiles[1],
     pooled_centering_temp,
     pooled_beta,
     pooled_vcov,
     argvar
   )
-  relative_heat <- predict_cumulative_or(
+  relative_heat <- predict_cumulative_rr(
     temp_percentiles[3],
     temp_percentiles[2],
     pooled_beta,
     pooled_vcov,
     argvar
   )
-  relative_cold <- predict_cumulative_or(
+  relative_cold <- predict_cumulative_rr(
     temp_percentiles[1],
     temp_percentiles[2],
     pooled_beta,
@@ -452,18 +452,18 @@ for (i in seq_len(nrow(cluster_period_keys))) {
     temp_p50_c = temp_percentiles[2],
     temp_p99_c = temp_percentiles[3],
     centering_temp_c = pooled_centering_temp,
-    heat_or_p99_vs_center = heat_effect["or"],
-    heat_or_low_95 = heat_effect["or_low_95"],
-    heat_or_high_95 = heat_effect["or_high_95"],
-    cold_or_p01_vs_center = cold_effect["or"],
-    cold_or_low_95 = cold_effect["or_low_95"],
-    cold_or_high_95 = cold_effect["or_high_95"],
-    relative_heat_or_p99_vs_p50 = relative_heat["or"],
-    relative_heat_or_low_95 = relative_heat["or_low_95"],
-    relative_heat_or_high_95 = relative_heat["or_high_95"],
-    relative_cold_or_p01_vs_p50 = relative_cold["or"],
-    relative_cold_or_low_95 = relative_cold["or_low_95"],
-    relative_cold_or_high_95 = relative_cold["or_high_95"],
+    heat_rr_p99_vs_center = heat_effect["rr"],
+    heat_rr_low_95 = heat_effect["rr_low_95"],
+    heat_rr_high_95 = heat_effect["rr_high_95"],
+    cold_rr_p01_vs_center = cold_effect["rr"],
+    cold_rr_low_95 = cold_effect["rr_low_95"],
+    cold_rr_high_95 = cold_effect["rr_high_95"],
+    relative_heat_rr_p99_vs_p50 = relative_heat["rr"],
+    relative_heat_rr_low_95 = relative_heat["rr_low_95"],
+    relative_heat_rr_high_95 = relative_heat["rr_high_95"],
+    relative_cold_rr_p01_vs_p50 = relative_cold["rr"],
+    relative_cold_rr_low_95 = relative_cold["rr_low_95"],
+    relative_cold_rr_high_95 = relative_cold["rr_high_95"],
     q_stat = safe_qtest_value(q_info, "qstat"),
     q_df = safe_qtest_value(q_info, "df"),
     q_pvalue = safe_qtest_value(q_info, "pvalue"),
@@ -474,7 +474,7 @@ for (i in seq_len(nrow(cluster_period_keys))) {
 
   temp_grid <- seq(temp_bounds[1], temp_bounds[2], length.out = 100)
   curve_vals <- t(vapply(temp_grid, function(x) {
-    predict_cumulative_or(
+    predict_cumulative_rr(
       x,
       pooled_centering_temp,
       pooled_beta,
@@ -487,9 +487,9 @@ for (i in seq_len(nrow(cluster_period_keys))) {
     cluster = cluster_i,
     period = period_i,
     temperature_c = temp_grid,
-    or_cumulative = curve_vals[, "or"],
-    or_low_95 = curve_vals[, "or_low_95"],
-    or_high_95 = curve_vals[, "or_high_95"],
+    rr_cumulative = curve_vals[, "rr"],
+    rr_low_95 = curve_vals[, "rr_low_95"],
+    rr_high_95 = curve_vals[, "rr_high_95"],
     centering_temp_c = pooled_centering_temp,
     temp_lower_bound_c = temp_bounds[1],
     temp_upper_bound_c = temp_bounds[2],
@@ -524,7 +524,7 @@ writeLines(
     "- Temperature is restricted to the 1st-99th percentile within each cluster-period before model fitting and effect estimation.",
     paste0("- Maximum lag is ", max_lag_weeks, " weeks, with a natural spline temperature basis and log-spaced lag knots."),
     "- State-specific cumulative temperature associations are reduced to the overall temperature basis and then pooled within each cluster-period using multivariate meta-analysis.",
-    "- Effect estimates are reported as cumulative odds-ratio-scale contrasts with 95 % confidence intervals for the pooled cluster-period curves.",
+    "- Effect estimates are reported as cumulative relative-risk-scale contrasts with 95 % confidence intervals for the pooled cluster-period curves.",
     "- This is not a literal replication of the published city-daily conditional logistic pipeline; it is the closest state-week adaptation supported by the local files while keeping the clustering method unchanged."
   ),
   method_notes_out

@@ -1,4 +1,4 @@
-"cluster","period","temperature_c","or_cumulative","or_low_95","or_high_95","centering_temp_c","temp_lower_bound_c","temp_upper_bound_c"
+"cluster","period","temperature_c","rr_cumulative","rr_low_95","rr_high_95","centering_temp_c","temp_lower_bound_c","temp_upper_bound_c"
 "cluster_1","2018-2021",4.41771428571429,NA,NA,NA,25.5833333333333,4.41771428571429,36.0251428571428
 "cluster_1","2018-2021",4.73698124098124,NA,NA,NA,25.5833333333333,4.41771428571429,36.0251428571428
 "cluster_1","2018-2021",5.0562481962482,NA,NA,NA,25.5833333333333,4.41771428571429,36.0251428571428

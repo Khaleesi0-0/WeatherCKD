@@ -14,5 +14,5 @@ Method notes:
 - Temperature is restricted to the 1st-99th percentile within each cluster-period before model fitting and effect estimation.
 - Maximum lag is 3 weeks, with a natural spline temperature basis and log-spaced lag knots.
 - State-specific cumulative temperature associations are reduced to the overall temperature basis and then pooled within each cluster-period using multivariate meta-analysis.
-- Effect estimates are reported as cumulative odds-ratio-scale contrasts with 95 % confidence intervals for the pooled cluster-period curves.
+- Effect estimates are reported as cumulative relative-risk-scale contrasts with 95 % confidence intervals for the pooled cluster-period curves.
 - This is not a literal replication of the published city-daily conditional logistic pipeline; it is the closest state-week adaptation supported by the local files while keeping the clustering method unchanged.

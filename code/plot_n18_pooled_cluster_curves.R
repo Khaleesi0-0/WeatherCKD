@@ -5,8 +5,8 @@ suppressPackageStartupMessages({
 curves_file <- "results/tables/n18_state_cluster_period_curves.csv"
 effects_file <- "results/tables/n18_state_cluster_period_effects.csv"
 assignments_file <- "results/tables/n18_state_cluster_assignments.csv"
-png_out <- "results/figures/n18_pooled_temperature_or_by_cluster.png"
-pdf_out <- "results/figures/n18_pooled_temperature_or_by_cluster.pdf"
+png_out <- "results/figures/n18_pooled_temperature_rr_by_cluster.png"
+pdf_out <- "results/figures/n18_pooled_temperature_rr_by_cluster.pdf"
 
 dir.create("results/figures", recursive = TRUE, showWarnings = FALSE)
 
@@ -15,6 +15,15 @@ curves <- read.csv(curves_file, stringsAsFactors = FALSE) %>%
     cluster = trimws(cluster),
     period = trimws(period)
   )
+
+if (!"rr_cumulative" %in% names(curves) && "or_cumulative" %in% names(curves)) {
+  curves <- curves %>%
+    rename(
+      rr_cumulative = or_cumulative,
+      rr_low_95 = or_low_95,
+      rr_high_95 = or_high_95
+    )
+}
 
 effects <- read.csv(effects_file, stringsAsFactors = FALSE) %>%
   mutate(
@@ -72,7 +81,7 @@ period_fill <- c(
 plot_cluster_panel <- function(cluster_name) {
   df <- curves %>%
     filter(cluster == cluster_name) %>%
-    filter(is.finite(or_cumulative), is.finite(or_low_95), is.finite(or_high_95)) %>%
+    filter(is.finite(rr_cumulative), is.finite(rr_low_95), is.finite(rr_high_95)) %>%
     arrange(period, temperature_c)
 
   meta_df <- effects %>% filter(cluster == cluster_name)
@@ -86,7 +95,7 @@ plot_cluster_panel <- function(cluster_name) {
   }
 
   x_limits <- range(df$temperature_c, finite = TRUE)
-  y_limits <- range(c(df$or_low_95, df$or_high_95), finite = TRUE)
+  y_limits <- range(c(df$rr_low_95, df$rr_high_95), finite = TRUE)
   y_limits[1] <- min(y_limits[1], 1)
   y_limits[2] <- max(y_limits[2], 1)
 
@@ -95,7 +104,7 @@ plot_cluster_panel <- function(cluster_name) {
     xlim = x_limits,
     ylim = y_limits,
     xlab = "Temperature (C)",
-    ylab = "Cumulative OR",
+    ylab = "Cumulative RR",
     main = cluster_label,
     las = 1
   )
@@ -114,7 +123,7 @@ plot_cluster_panel <- function(cluster_name) {
     fill_col <- grDevices::adjustcolor(period_fill[[pd]], alpha.f = 0.45)
     polygon(
       x = c(band_df$temperature_c, rev(band_df$temperature_c)),
-      y = c(band_df$or_low_95, rev(band_df$or_high_95)),
+      y = c(band_df$rr_low_95, rev(band_df$rr_high_95)),
       col = fill_col,
       border = NA
     )
@@ -131,7 +140,7 @@ plot_cluster_panel <- function(cluster_name) {
 
     lines(
       line_df$temperature_c,
-      line_df$or_cumulative,
+      line_df$rr_cumulative,
       col = cluster_colors[[as.character(cluster_name)]],
       lty = period_lty[[pd]],
       lwd = 2.5
@@ -190,7 +199,7 @@ make_figure <- function(device_fun, file, width, height) {
 
   draw_legends()
   mtext(
-    "N18 pooled cluster-period temperature curves\nDLNM cumulative odds-ratio-scale associations within cluster-specific 1st-99th percentile ranges",
+    "N18 pooled cluster-period temperature curves\nDLNM cumulative relative-risk-scale associations within cluster-specific 1st-99th percentile ranges",
     outer = TRUE,
     cex = 1.05
   )
